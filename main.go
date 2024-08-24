@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"github.com/centrifugal/gocent/v3"
 	"log"
 	"net/http"
 	"time"
@@ -16,6 +18,8 @@ func main() {
 
 	go sender()
 
+	go gocentSender()
+
 	// Start the web server on port 8080
 	log.Println("Starting web server on http://localhost:3000")
 	if err := http.ListenAndServe(":3000", nil); err != nil {
@@ -27,6 +31,32 @@ func main() {
 type Data struct {
 	Channel string         `json:"channel"`
 	Data    map[string]int `json:"data"`
+}
+
+func gocentSender() {
+
+	c := gocent.New(gocent.Config{
+		Addr: "http://localhost:8000/api",
+		Key:  "my_api_key",
+	})
+
+	i := 1000000
+	for {
+		i++
+		data, err := json.Marshal(map[string]int{"value": i})
+		if err != nil {
+			log.Fatalf("Error marshalling data: %v", err)
+		}
+		result, err := c.Publish(context.Background(), "channel", data)
+		if err != nil {
+			log.Fatalf("Error calling publish: %v", err)
+		}
+		log.Printf("Publish into channel %s successful, stream position {offset: %d, epoch: %s}", "channel", result.Offset, result.Epoch)
+
+		// Sleep for a specified duration before sending the next request
+		time.Sleep(2 * time.Second) // Send a request every 5 seconds
+	}
+
 }
 
 // sendPostRequest sends a POST request to the specified URL with the given data
